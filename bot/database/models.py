@@ -39,6 +39,7 @@ class Chat(Base):
     name = Column(
         String(50),
     )
+    questions = relationship('Question', back_populates='chat')
 
 
 class Question(Base):
@@ -49,7 +50,8 @@ class Question(Base):
         nullable=False,
     )
 
-    chat = relationship('Chats', backref='questions')
+    chat = relationship('Chat', back_populates='questions')
+    answers = relationship('Answer', back_populates='question')
 
 
 class Answer(Base):
@@ -67,7 +69,7 @@ class Answer(Base):
     )
     question_id = Column(
         Integer,
-        ForeignKey('questions.id'),
-        nullable=False
+        ForeignKey('questions.id', ondelete="CASCADE"),
+        nullable=False,
     )
-    question = relationship('Question', backref='answers')
+    question = relationship('Question', back_populates='answers')
