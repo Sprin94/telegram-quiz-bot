@@ -10,8 +10,10 @@ from pydantic import ValidationError
 
 from database.schemas import QuestionSchema, AnswerSchema
 from database.crud import create_question_with_answers, get_random_quiz
+from filters.admin_user import IsAdmin
 
 router: Router = Router(name="admin-router")
+router.message.filter(IsAdmin())
 
 REDIS_TEMP = {}
 

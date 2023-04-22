@@ -4,7 +4,7 @@ from aiogram import Bot, Router, types, F
 from aiogram.filters.chat_member_updated import ChatMemberUpdatedFilter, JOIN_TRANSITION
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from migration_cache import cache
+from cache import migration_cache
 from database.crud import get_or_create_chat
 
 router: Router = Router()
@@ -19,7 +19,7 @@ async def bot_added_to_group(
     session: AsyncSession,
 ):
     await sleep(1.0)
-    if event.chat.id not in cache.keys():
+    if event.chat.id not in migration_cache.keys():
         await bot.send_message(
             chat_id=event.chat.id,
             text=f'Бот добавлен в {chats_variants[event.chat.type]}\n'
@@ -36,4 +36,4 @@ async def group_to_supegroup_migration(message: types.Message, bot: Bot):
         f'Старый ID: {message.chat.id}\n'
         f'Новый ID: {message.migrate_to_chat_id}'
     )
-    cache[message.migrate_to_chat_id] = True
+    migration_cache[message.migrate_to_chat_id] = True
