@@ -6,6 +6,7 @@ from aiogram.types import Message, PollAnswer
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import ValidationError
 
 from database.schemas import QuestionSchema, AnswerSchema
 from database.crud import create_question_with_answers, get_random_quiz
@@ -34,10 +35,14 @@ async def create_quiz(message: Message, state: FSMContext):
 @router.message(CreateQuiz.create_question, F.text, ~(F.text.startswith('/')))
 async def add_question(message: Message, state: FSMContext):
     await state.clear()
-    question = QuestionSchema(
-        chat_id=message.chat.id,
-        text=message.text.lower()
-    )
+    try:
+        question = QuestionSchema(
+            chat_id=message.chat.id,
+            text=message.text.lower()
+        )
+    except ValidationError:
+        await message.answer('Ваш вопрос слишком длинный.')
+        return
     await state.update_data(question=question)
     await message.answer(
         text=('Вопрос добавлен\nТеперь добавим варианты ответов.\n'
@@ -57,10 +62,16 @@ async def add_answers(
 ):
     user_data = await state.get_data()
     answers = user_data.setdefault('answers', [])
-    answer = AnswerSchema(
-        text=message.text,
-        is_right=False if answers else True,
-    )
+    try:
+        answer = AnswerSchema(
+            text=message.text,
+            is_right=False if answers else True,
+        )
+    except ValidationError:
+        await message.answer('Ваш ответ слишком длинный.')
+        return
+
+    answers = user_data.setdefault('answers', [])
     answers.append(answer)
     await state.update_data(**user_data)
     answer_amount = len(answers)
