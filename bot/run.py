@@ -3,6 +3,7 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
+from database.db import check_connection
 from middlewares.db import DbSessionMiddleware
 from config_reader import config
 from handlers import setup_routers
@@ -17,6 +18,8 @@ async def main():
     dp.update.middleware(DbSessionMiddleware(session_pool=sessionmaker))
     router = setup_routers()
     dp.include_router(router)
+    # Проверяем подключение к БД
+    await check_connection()
     # Запуск поллинга
     await dp.start_polling(bot)
 
