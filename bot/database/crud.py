@@ -49,21 +49,30 @@ async def create_question_with_answers(
     await _create_answers(session, question_id, answers)
 
 
-async def get_question_with_answers(session: AsyncSession, question_id: int):
+async def get_question_with_answers(session: AsyncSession, question_id) -> Question:
     stmt = (select(Question)
-            .where(id == question_id)
+            .where(Question.id == question_id)
             .options(joinedload(Question.answers))
             )
     result = await session.execute(stmt)
-    return result.unique().scalars().first()
+    return result.scalar()
 
 
-async def get_random_quiz(session: AsyncSession, chat_id: int):
+async def get_random_quiz(session: AsyncSession, chat_id: int) -> Question:
     stmt = (select(Question)
-            .where(chat_id == chat_id)
+            .where(Question.chat_id == chat_id)
             .options(joinedload(Question.answers))
             .order_by(func.random())
             .limit(1)
             )
     result = await session.execute(stmt)
     return result.scalar()
+
+
+async def get_questions_by_chat_id(session: AsyncSession, chat_id: int):
+    stmt = (select(Question)
+            .where(Question.chat_id == chat_id)
+            .options(joinedload(Question.answers))
+            )
+    result = await session.execute(stmt)
+    return result.unique().scalars()

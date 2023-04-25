@@ -1,7 +1,7 @@
 from random import shuffle
 
 from aiogram import Router, Bot, F
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.types import Message, PollAnswer
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -9,11 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
 
 from database.schemas import QuestionSchema, AnswerSchema
-from database.crud import create_question_with_answers, get_random_quiz
+from database.crud import (
+    create_question_with_answers, get_random_quiz, get_questions_by_chat_id,
+    get_question_with_answers
+)
 from filters.admin_user import IsAdmin
+from keyboards.admin_quiz import get_remove_quiz_keyboard
 
 router: Router = Router(name="admin-router")
-router.message.filter(IsAdmin())
+router.message.filter(F.chat.type.in_(["group", "supergroup"]), IsAdmin())
 
 REDIS_TEMP = {}
 
@@ -102,6 +106,44 @@ async def add_answers(
         await message.answer('Что-то пошло не так. Мы все потеряли.')
 
 
+@router.message(Command(commands=['quizzes']))
+async def get_chat_questions(message: Message, session: AsyncSession, state: FSMContext):
+    questions = await get_questions_by_chat_id(session=session, chat_id=message.chat.id)
+    if not questions:
+        await message.answer('Не нашел опросов для этого чата.\n'
+                             'Чтобы создать опрос используйте /create')
+    res = '\n'.join(f'{i}. {q.text} id:{q.id}'
+                    for i, q in enumerate(questions, start=1))
+    await message.answer(
+        f'Вот список опросов для этого чата:\n{res}'
+    )
+
+
+@router.message(Command(commands=['detail']))
+async def get_question(message: Message, session: AsyncSession, command: CommandObject):
+    if not command.args:
+        await message.answer('Пожалуйста, укажите номер вопроса после команды /detail')
+        return
+    try:
+        question_id = int(command.args)
+    except ValueError:
+        await message.answer('Номер должен быть целым числом')
+        return
+    question = await get_question_with_answers(session=session, question_id=question_id)
+    if question:
+        if question.chat_id != message.chat.id:
+            await message.answer('Этот вопрос не из этого чата.')
+            return
+        res = '\n'.join(f'{i}. {answer.text} {answer.is_right}'
+                        for i, answer in enumerate(question.answers, start=1))
+        await message.answer(
+            f'Вопрос:\n{question.text}\nОтветы:\n{res}',
+            reply_markup=get_remove_quiz_keyboard()
+        )
+        return
+    await message.answer('Не удалось найти вопрос с таким id.')
+
+
 @router.message(Command(commands=['poll']))
 async def create_poll(message: Message, bot: Bot, session: AsyncSession):
     quiz = await get_random_quiz(session=session, chat_id=message.chat.id)
@@ -132,6 +174,7 @@ async def poll_answer(poll_answer: PollAnswer, bot: Bot):
         if poll_correct_answer['correct_answer'] == poll_answer.option_ids[0]:
             chat_id = REDIS_TEMP.get(poll_answer.poll_id)['chat_id']
             REDIS_TEMP.pop(poll_answer.poll_id)
+            await bot.stop_poll(chat_id, poll_answer.poll_id)
             await bot.send_message(
                 chat_id=chat_id,
                 text=(f'{poll_answer.user.username} первый ответил '
