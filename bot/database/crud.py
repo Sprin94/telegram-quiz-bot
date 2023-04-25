@@ -76,3 +76,12 @@ async def get_questions_by_chat_id(session: AsyncSession, chat_id: int):
             )
     result = await session.execute(stmt)
     return result.unique().scalars()
+
+
+async def delete_question(session: AsyncSession, question_id: int):
+    question = await session.get(Question, question_id)
+    if question:
+        await session.delete(question)
+        await session.commit()
+        return True
+    return None

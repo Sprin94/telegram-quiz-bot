@@ -137,8 +137,9 @@ async def get_question(message: Message, session: AsyncSession, command: Command
         res = '\n'.join(f'{i}. {answer.text} {answer.is_right}'
                         for i, answer in enumerate(question.answers, start=1))
         await message.answer(
-            f'Вопрос:\n{question.text}\nОтветы:\n{res}',
-            reply_markup=get_remove_quiz_keyboard()
+            f'Вопрос:\n{question.text}\nОтветы:\n{res}\n#<b>{question_id}</b>',
+            reply_markup=get_remove_quiz_keyboard(),
+            parse_mode='HTML',
         )
         return
     await message.answer('Не удалось найти вопрос с таким id.')

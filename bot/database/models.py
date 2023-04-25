@@ -51,7 +51,7 @@ class Question(Base):
     )
 
     chat = relationship('Chat', back_populates='questions')
-    answers = relationship('Answer', back_populates='question')
+    answers = relationship('Answer', back_populates='question', cascade='all, delete')
 
 
 class Answer(Base):
