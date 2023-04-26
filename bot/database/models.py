@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.declarative import declared_attr, as_declarative
 from sqlalchemy import (
-    Column, DateTime, Integer, Text, String, ForeignKey, Boolean
+    Column, DateTime, Integer, Text, String, ForeignKey, Boolean, UniqueConstraint, Time
 )
 from sqlalchemy.orm import relationship
 
@@ -55,10 +55,6 @@ class Question(Base):
 
 
 class Answer(Base):
-    id = Column(
-        Integer,
-        primary_key=True
-    )
     text = Column(
         Text,
         nullable=False
@@ -73,3 +69,17 @@ class Answer(Base):
         nullable=False,
     )
     question = relationship('Question', back_populates='answers')
+
+
+class Schedule(Base):
+    id = Column(
+        Integer,
+        primary_key=True
+    )
+    chat_id = Column(
+        Integer,
+        ForeignKey('chats.id', ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    time = Column(Time)

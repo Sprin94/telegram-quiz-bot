@@ -1,11 +1,13 @@
+from datetime import time
+
 from aiogram.types import Chat as AiogramChat
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.orm import joinedload
 
 from database.schemas import QuestionSchema, AnswerSchema
-from database.models import Chat, Question, Answer
+from database.models import Chat, Question, Answer, Schedule
 
 
 async def get_or_create_chat(session: AsyncSession, chat: AiogramChat):
@@ -85,3 +87,24 @@ async def delete_question(session: AsyncSession, question_id: int):
         await session.commit()
         return True
     return None
+
+
+async def create_or_update_schedule(session: AsyncSession, time: time, chat_id: int):
+    new_schedule = Schedule(
+        chat_id=chat_id,
+        time=time
+    )
+    try:
+        session.add(new_schedule)
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        stmt = update(Schedule).where(Schedule.chat_id == chat_id).values(time=time)
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def get_schedule(session: AsyncSession, chat_id: int):
+    stmt = select(Schedule.time).where(Schedule.chat_id == chat_id)
+    result = await session.execute(stmt)
+    return result.scalar_one()

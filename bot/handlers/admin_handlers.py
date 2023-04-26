@@ -1,4 +1,6 @@
+import asyncio
 from random import shuffle
+from datetime import datetime, time, timedelta
 
 from aiogram import Router, Bot, F
 from aiogram.filters import Command, CommandObject
@@ -11,15 +13,15 @@ from pydantic import ValidationError
 from database.schemas import QuestionSchema, AnswerSchema
 from database.crud import (
     create_question_with_answers, get_random_quiz, get_questions_by_chat_id,
-    get_question_with_answers
+    get_question_with_answers, create_or_update_schedule, get_schedule
 )
 from filters.admin_user import IsAdmin
 from keyboards.admin_quiz import get_remove_quiz_keyboard
+from run import sessionmaker
+from cache import schedule_cache, quiz_cache
 
 router: Router = Router(name="admin-router")
 router.message.filter(F.chat.type.in_(["group", "supergroup"]), IsAdmin())
-
-REDIS_TEMP = {}
 
 
 class CreateQuiz(StatesGroup):
@@ -145,9 +147,9 @@ async def get_question(message: Message, session: AsyncSession, command: Command
     await message.answer('Не удалось найти вопрос с таким id.')
 
 
-@router.message(Command(commands=['poll']))
-async def create_poll(message: Message, bot: Bot, session: AsyncSession):
-    quiz = await get_random_quiz(session=session, chat_id=message.chat.id)
+async def _create_poll(bot: Bot, chat_id: int):
+    async with sessionmaker() as session:
+        quiz = await get_random_quiz(session=session, chat_id=chat_id)
     shuffle(quiz.answers)
     answers = []
     for i, answer in enumerate(quiz.answers):
@@ -155,29 +157,77 @@ async def create_poll(message: Message, bot: Bot, session: AsyncSession):
         if answer.is_right:
             correct_option_id = i
     poll_message = await bot.send_poll(
-        chat_id=message.chat.id,
+        chat_id=chat_id,
         question=quiz.text,
         type='quiz',
         correct_option_id=correct_option_id,
         options=answers,
         is_anonymous=False,
+        close_date=timedelta(minutes=1)
     )
-    REDIS_TEMP[poll_message.poll.id] = {
-        'chat_id': message.chat.id,
+    quiz_cache[poll_message.poll.id] = {
+        'chat_id': chat_id,
         'correct_answer': correct_option_id,
+        'poll_message_id': poll_message.message_id
     }
+
+
+async def _wrapper_for_create_poll(bot: Bot, chat_id: int):
+    async with sessionmaker() as session:
+        schedule_time = await get_schedule(session=session, chat_id=chat_id)
+    time_now = datetime.now()
+    poll_time = time_now.combine(time_now, schedule_time)
+    delta = poll_time - time_now
+    if delta.days < 0:
+        poll_time = poll_time + timedelta(days=1)
+        delta = poll_time - time_now
+    await asyncio.sleep(delta.seconds)
+    await _create_poll(bot=bot, chat_id=chat_id)
+    task = asyncio.create_task(_wrapper_for_create_poll(bot, chat_id))
+    schedule_cache[chat_id] = task
+
+
+@router.message(Command(commands=['poll']))
+async def create_poll_command(message: Message, bot: Bot):
+    await _create_poll(bot=bot, chat_id=message.chat.id)
+
+
+@router.message(Command(commands=['config_time']))
+async def set_time_for_poll(
+    message: Message,
+    bot: Bot,
+    session: AsyncSession,
+    command: CommandObject,
+):
+    error_msg = 'Пожалуйста, укажите время проведения опроса.\nПример /config_time 15:15'
+    if not command.args or ':' not in command.args or len(command.args.split(':')) != 2:
+        return await message.answer(error_msg)
+    args = command.args.split(':')
+    try:
+        poll_hour = int(args[0])
+        poll_minute = int(args[1])
+    except ValueError:
+        return await message.answer(error_msg)
+    await create_or_update_schedule(
+        session=session,
+        time=time(poll_hour, poll_minute),
+        chat_id=message.chat.id,
+    )
+    if task := schedule_cache.pop(message.chat.id, None):
+        task.cancel()
+    task = asyncio.create_task(_wrapper_for_create_poll(bot, message.chat.id))
+    schedule_cache[message.chat.id] = task
 
 
 @router.poll_answer()
 async def poll_answer(poll_answer: PollAnswer, bot: Bot):
-    poll_correct_answer = REDIS_TEMP.get(poll_answer.poll_id)
+    poll_correct_answer = quiz_cache.get(poll_answer.poll_id)
     if poll_correct_answer:
         if poll_correct_answer['correct_answer'] == poll_answer.option_ids[0]:
-            chat_id = REDIS_TEMP.get(poll_answer.poll_id)['chat_id']
-            REDIS_TEMP.pop(poll_answer.poll_id)
-            await bot.stop_poll(chat_id, poll_answer.poll_id)
+            data = quiz_cache.pop(poll_answer.poll_id)
+            await bot.stop_poll(data['chat_id'], data['poll_message_id'])
             await bot.send_message(
-                chat_id=chat_id,
-                text=(f'{poll_answer.user.username} первый ответил '
+                chat_id=data['chat_id'],
+                text=(f'@{poll_answer.user.username} первый ответил '
                       'правильно и получает немного кармы =)')
             )

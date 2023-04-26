@@ -9,9 +9,11 @@ from config_reader import config
 from handlers import setup_routers
 
 
+engine = create_async_engine(url=config.SQLALCHEMY_DATABASE_URI, echo=True)
+sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+
+
 async def main():
-    engine = create_async_engine(url=config.SQLALCHEMY_DATABASE_URI, echo=True)
-    sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
     # инициализируем бот и диспетчер
     bot = Bot(token=config.BOT_TOKEN.get_secret_value())
     dp = Dispatcher()
