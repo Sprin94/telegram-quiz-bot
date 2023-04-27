@@ -1,6 +1,11 @@
 from asyncpg import Connection, connect
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from config_reader import config
+
+
+engine = create_async_engine(url=config.SQLALCHEMY_DATABASE_URI, echo=True)
+sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def check_connection() -> None:

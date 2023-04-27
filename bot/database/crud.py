@@ -104,7 +104,13 @@ async def create_or_update_schedule(session: AsyncSession, time: time, chat_id: 
         await session.commit()
 
 
-async def get_schedule(session: AsyncSession, chat_id: int):
+async def get_schedule_time(session: AsyncSession, chat_id: int):
     stmt = select(Schedule.time).where(Schedule.chat_id == chat_id)
     result = await session.execute(stmt)
     return result.scalar_one()
+
+
+async def get_chat_id_schedules(session: AsyncSession):
+    stmt = select(Schedule.chat_id)
+    result = await session.execute(stmt)
+    return result.scalars().all()

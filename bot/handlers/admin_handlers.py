@@ -1,6 +1,5 @@
 import asyncio
-from random import shuffle
-from datetime import datetime, time, timedelta
+from datetime import time
 
 from aiogram import Router, Bot, F
 from aiogram.filters import Command, CommandObject
@@ -12,12 +11,13 @@ from pydantic import ValidationError
 
 from database.schemas import QuestionSchema, AnswerSchema
 from database.crud import (
-    create_question_with_answers, get_random_quiz, get_questions_by_chat_id,
-    get_question_with_answers, create_or_update_schedule, get_schedule
+    create_question_with_answers, get_questions_by_chat_id, get_question_with_answers,
+    create_or_update_schedule
 )
+from services.create_poll import _create_poll, _wrapper_for_create_poll
+
 from filters.admin_user import IsAdmin
 from keyboards.admin_quiz import get_remove_quiz_keyboard
-from run import sessionmaker
 from cache import schedule_cache, quiz_cache
 
 router: Router = Router(name="admin-router")
@@ -145,46 +145,6 @@ async def get_question(message: Message, session: AsyncSession, command: Command
         )
         return
     await message.answer('Не удалось найти вопрос с таким id.')
-
-
-async def _create_poll(bot: Bot, chat_id: int):
-    async with sessionmaker() as session:
-        quiz = await get_random_quiz(session=session, chat_id=chat_id)
-    shuffle(quiz.answers)
-    answers = []
-    for i, answer in enumerate(quiz.answers):
-        answers.append(answer.text)
-        if answer.is_right:
-            correct_option_id = i
-    poll_message = await bot.send_poll(
-        chat_id=chat_id,
-        question=quiz.text,
-        type='quiz',
-        correct_option_id=correct_option_id,
-        options=answers,
-        is_anonymous=False,
-        close_date=timedelta(minutes=1)
-    )
-    quiz_cache[poll_message.poll.id] = {
-        'chat_id': chat_id,
-        'correct_answer': correct_option_id,
-        'poll_message_id': poll_message.message_id
-    }
-
-
-async def _wrapper_for_create_poll(bot: Bot, chat_id: int):
-    async with sessionmaker() as session:
-        schedule_time = await get_schedule(session=session, chat_id=chat_id)
-    time_now = datetime.now()
-    poll_time = time_now.combine(time_now, schedule_time)
-    delta = poll_time - time_now
-    if delta.days < 0:
-        poll_time = poll_time + timedelta(days=1)
-        delta = poll_time - time_now
-    await asyncio.sleep(delta.seconds)
-    await _create_poll(bot=bot, chat_id=chat_id)
-    task = asyncio.create_task(_wrapper_for_create_poll(bot, chat_id))
-    schedule_cache[chat_id] = task
 
 
 @router.message(Command(commands=['poll']))
