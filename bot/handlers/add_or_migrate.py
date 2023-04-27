@@ -23,17 +23,12 @@ async def bot_added_to_group(
         await bot.send_message(
             chat_id=event.chat.id,
             text=f'Бот добавлен в {chats_variants[event.chat.type]}\n'
-                 f'chat ID: {event.chat.id}'
+                 f'chat ID: {event.chat.id}\n'
+                 'Для правильной работы нужно добавить бота в администраторы группы.'
         )
         await get_or_create_chat(session=session, chat=event.chat)
 
 
 @router.message(F.migrate_to_chat_id)
 async def group_to_supegroup_migration(message: types.Message, bot: Bot):
-    await bot.send_message(
-        message.migrate_to_chat_id,
-        f'Группа повышена до супергруппы.\n'
-        f'Старый ID: {message.chat.id}\n'
-        f'Новый ID: {message.migrate_to_chat_id}'
-    )
     migration_cache[message.migrate_to_chat_id] = True
