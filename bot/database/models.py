@@ -40,6 +40,7 @@ class Chat(Base):
         String(50),
     )
     questions = relationship('Question', back_populates='chat')
+    quizzes = relationship('FinishedQuizzes', back_populates='chat')
 
 
 class Question(Base):
@@ -52,6 +53,7 @@ class Question(Base):
 
     chat = relationship('Chat', back_populates='questions')
     answers = relationship('Answer', back_populates='question', cascade='all, delete')
+    quizzes = relationship('FinishedQuizzes', back_populates='question')
 
 
 class Answer(Base):
@@ -72,10 +74,6 @@ class Answer(Base):
 
 
 class Schedule(Base):
-    id = Column(
-        Integer,
-        primary_key=True
-    )
     chat_id = Column(
         Integer,
         ForeignKey('chats.id', ondelete="CASCADE"),
@@ -83,3 +81,23 @@ class Schedule(Base):
         unique=True,
     )
     time = Column(Time)
+
+
+class FinishedQuizzes(Base):
+    chat_id = Column(
+        Integer,
+        ForeignKey('chats.id', ondelete="CASCADE"),
+        nullable=False,
+    )
+    question_id = Column(
+        Integer,
+        ForeignKey('questions.id', ondelete="CASCADE"),
+        nullable=False,
+    )
+    poll_id = Column(
+        String(25),
+        unique=True
+    )
+    winner = Column(Integer, default=None)
+    question = relationship('Question', back_populates='quizzes')
+    chat = relationship('Chat', back_populates='quizzes')

@@ -1,13 +1,13 @@
 from datetime import time
 
-from aiogram.types import Chat as AiogramChat
+from aiogram.types import Chat as AiogramChat, Message, PollAnswer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, func, update
 from sqlalchemy.orm import joinedload
 
 from database.schemas import QuestionSchema, AnswerSchema
-from database.models import Chat, Question, Answer, Schedule
+from database.models import Chat, Question, Answer, Schedule, FinishedQuizzes
 
 
 async def get_or_create_chat(session: AsyncSession, chat: AiogramChat):
@@ -114,3 +114,28 @@ async def get_chat_id_schedules(session: AsyncSession):
     stmt = select(Schedule.chat_id)
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+async def create_finished_quizzes(
+    session: AsyncSession,
+    poll_message: Message,
+    question: Question
+):
+    quiz = FinishedQuizzes(
+        chat_id=poll_message.chat.id,
+        question_id=question.id,
+        poll_id=poll_message.poll.id
+    )
+    session.add(quiz)
+    await session.commit()
+
+
+async def set_winner_finished_quizzes(
+    session: AsyncSession,
+    poll_answer: PollAnswer
+):
+    stmt = (update(FinishedQuizzes)
+            .where(FinishedQuizzes.poll_id == poll_answer.poll_id)
+            .values(winner=poll_answer.user.id))
+    await session.execute(stmt)
+    await session.commit()

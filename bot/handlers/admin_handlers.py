@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from database.schemas import QuestionSchema, AnswerSchema
 from database.crud import (
     create_question_with_answers, get_questions_by_chat_id, get_question_with_answers,
-    create_or_update_schedule
+    create_or_update_schedule, set_winner_finished_quizzes
 )
 from services.create_poll import _create_poll, _wrapper_for_create_poll
 
@@ -180,7 +180,7 @@ async def set_time_for_poll(
 
 
 @router.poll_answer()
-async def poll_answer(poll_answer: PollAnswer, bot: Bot):
+async def poll_answer(poll_answer: PollAnswer, bot: Bot, session: AsyncSession):
     poll_correct_answer = quiz_cache.get(poll_answer.poll_id)
     if poll_correct_answer:
         if poll_correct_answer['correct_answer'] == poll_answer.option_ids[0]:
@@ -191,3 +191,4 @@ async def poll_answer(poll_answer: PollAnswer, bot: Bot):
                 text=(f'@{poll_answer.user.username} первый ответил '
                       'правильно и получает немного кармы =)')
             )
+            await set_winner_finished_quizzes(session=session, poll_answer=poll_answer)
