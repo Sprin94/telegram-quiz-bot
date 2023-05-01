@@ -5,7 +5,7 @@ from aiogram.filters.chat_member_updated import ChatMemberUpdatedFilter, JOIN_TR
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from cache import migration_cache
-from database.crud import get_or_create_chat
+from database.crud import create_chat
 
 router: Router = Router()
 chats_variants = {'group': 'группу', 'supergroup': 'супергруппу'}
@@ -26,7 +26,7 @@ async def bot_added_to_group(
                  f'chat ID: {event.chat.id}\n'
                  'Для правильной работы нужно добавить бота в администраторы группы.'
         )
-        await get_or_create_chat(session=session, chat=event.chat)
+        await create_chat(session=session, chat=event.chat)
 
 
 @router.message(F.migrate_to_chat_id)

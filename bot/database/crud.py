@@ -10,7 +10,7 @@ from database.schemas import QuestionSchema, AnswerSchema
 from database.models import Chat, Question, Answer, Schedule, FinishedQuizzes
 
 
-async def get_or_create_chat(session: AsyncSession, chat: AiogramChat):
+async def create_chat(session: AsyncSession, chat: AiogramChat):
     try:
         new_chat = Chat(id=chat.id, name=chat.title)
         session.add(new_chat)

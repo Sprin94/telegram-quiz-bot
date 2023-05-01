@@ -3,7 +3,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
 
@@ -14,7 +14,8 @@ from database.crud import (
 from keyboards.admin_quiz import get_remove_quiz_keyboard
 from services.utils import get_admins_id_set
 
-router: Router = Router(name="admin-group")
+router: Router = Router(name="admin-private")
+router.message.filter(F.chat.type.in_(['private']))
 
 
 class SettingsQuiz(StatesGroup):
@@ -24,7 +25,13 @@ class SettingsQuiz(StatesGroup):
 
 
 @router.message(Command(commands=['manage']))
-async def check(message: Message, bot: Bot, state: FSMContext, command: CommandObject):
+async def check(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    command: CommandObject,
+    session: AsyncSession
+):
     if not command.args:
         return await message.answer('Неправильное использование команды.\n'
                                     'Используй /manage <chat_id>')
@@ -33,11 +40,13 @@ async def check(message: Message, bot: Bot, state: FSMContext, command: CommandO
     try:
         chat_id = int(command.args)
     except ValueError:
-        return await message.answer('ID чата должно быть целым числом и начинаться с "-"')
+        return await message.answer('ID чата должен быть целым числом и начинаться с "-"')
     try:
         admins = await get_admins_id_set(chat_id, bot)
     except TelegramBadRequest:
         return await message.answer('Не найден чат с таким ID')
+    except TelegramForbiddenError:
+        return await message.answer('Сначала добавьте бота в группу.')
     if message.from_user.id not in admins:
         return await message.answer(f'Вы не админ в чате с ID: {chat_id}')
     await message.answer('Для создания опроса  /create\n'

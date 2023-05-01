@@ -16,6 +16,7 @@ from filters.admin_user import IsAdmin
 from cache import schedule_cache
 
 router: Router = Router(name="admin-group")
+router.message.filter(IsAdmin())
 
 
 @router.message(Command(commands=['set_time']))
@@ -46,11 +47,7 @@ async def set_time_for_poll(
     await message.answer('Время проведения викторины установлено.\n')
 
 
-@router.message(
-        Command(commands=['poll']),
-        F.chat.type.in_(["group", "supergroup"]),
-        IsAdmin(),
-)
+@router.message(Command(commands=['poll']))
 async def create_poll_command(message: Message, bot: Bot):
     await _create_poll(bot=bot, chat_id=message.chat.id)
 
