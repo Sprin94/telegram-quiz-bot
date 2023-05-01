@@ -55,8 +55,8 @@ async def get_chat_questions(message: Message, session: AsyncSession, state: FSM
         chat_id=data['chat_id']
     )
     if not questions:
-        await message.answer('Не нашел опросов для этого чата.\n'
-                             'Чтобы создать опрос используйте /manage_quiz')
+        return await message.answer('Не нашел опросов для этого чата.\n'
+                                    'Чтобы создать опрос используйте /manage_quiz')
     res = '\n'.join(f'{i}. {q.text} id:{q.id}'
                     for i, q in enumerate(questions, start=1))
     return await message.answer(

@@ -77,7 +77,7 @@ async def get_questions_by_chat_id(session: AsyncSession, chat_id: int):
             .options(joinedload(Question.answers))
             )
     result = await session.execute(stmt)
-    return result.unique().scalars()
+    return result.unique().scalars().all()
 
 
 async def delete_question(session: AsyncSession, question_id: int):
