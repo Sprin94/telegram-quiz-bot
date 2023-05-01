@@ -5,6 +5,7 @@ from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from handlers.callback_data import DetailQuiz
+from handlers.admin_handlers_private_chat import SettingsQuiz
 from database.crud import delete_question
 from keyboards.admin_quiz import get_remove_quiz_keyboard
 
@@ -25,9 +26,11 @@ async def delete_quiz(
 ):
     data = await state.get_data()
     await callback.message.delete()
+    await callback.message.reply_to_message.delete()
     await delete_question(session=session, question_id=int(data.get('q_id')))
-    await state.clear()
     await callback.message.answer('Вопрос удалён.')
+    await state.set_state(SettingsQuiz.manage)
+    await state.set_data({'chat_id': data['chat_id']})
 
 
 @router.callback_query(DetailQuiz.filter())
@@ -41,9 +44,10 @@ async def callback_quiz_detail(
         entities = callback.message.entities
         if entities:
             q_id = entities[0].extract_from(callback.message.text)
-            await state.set_data({'q_id': q_id})
-        await callback.message.answer(
+            await state.update_data({'q_id': q_id})
+        await callback.message.reply(
             f'Вы действительно хотите удалить вопрос с id {q_id}?',
             reply_markup=get_remove_quiz_keyboard()
         )
+        await callback.message.delete_reply_markup()
     await callback.answer()

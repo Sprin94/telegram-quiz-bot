@@ -38,6 +38,8 @@ async def _wrapper_for_create_poll(bot: Bot, chat_id: int):
 async def _create_poll(bot: Bot, chat_id: int):
     async with sessionmaker() as session:
         quiz = await get_random_quiz(session=session, chat_id=chat_id)
+        if not quiz:
+            return await bot.send_message(chat_id, 'Не найдены вопросы для этого чата.')
         shuffle(quiz.answers)
         answers = []
         for i, answer in enumerate(quiz.answers):

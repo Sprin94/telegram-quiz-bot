@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.declarative import declared_attr, as_declarative
 from sqlalchemy import (
-    Column, DateTime, Integer, Text, String, ForeignKey, Boolean, UniqueConstraint, Time
+    Column, DateTime, Integer, Text, String, ForeignKey, Boolean, Time
 )
 from sqlalchemy.orm import relationship
 
@@ -91,8 +91,8 @@ class FinishedQuizzes(Base):
     )
     question_id = Column(
         Integer,
-        ForeignKey('questions.id', ondelete="CASCADE"),
-        nullable=False,
+        ForeignKey('questions.id', ondelete="SET NULL"),
+        nullable=True,
     )
     poll_id = Column(
         String(25),
