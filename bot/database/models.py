@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.declarative import declared_attr, as_declarative
 from sqlalchemy import (
-    Column, DateTime, Integer, Text, String, ForeignKey, Boolean, Time
+    Column, DateTime, Integer, Text, String, ForeignKey, Boolean, Time, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 
@@ -78,9 +78,9 @@ class Schedule(Base):
         Integer,
         ForeignKey('chats.id', ondelete="CASCADE"),
         nullable=False,
-        unique=True,
     )
-    time = Column(Time)
+    time = Column(Time, nullable=False)
+    UniqueConstraint(chat_id, time, name='unique_time_for_chat')
 
 
 class FinishedQuizzes(Base):

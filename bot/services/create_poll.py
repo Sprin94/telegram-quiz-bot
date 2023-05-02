@@ -5,34 +5,45 @@ from random import shuffle
 from aiogram import Bot
 
 from database.db import sessionmaker
-from cache import quiz_cache, schedule_cache
+from database.models import Schedule
+from cache import quiz_cache
 from database.crud import (
-    get_chat_id_schedules, get_schedule_time, get_random_quiz, create_finished_quizzes
-
+    get_schedules_in_5_minutes, get_schedule_by_time_and_chat_id, get_random_quiz,
+    create_finished_quizzes
 )
 
 
 async def create_quizzes_tasks(bot: Bot):
-    async with sessionmaker() as session:
-        chats_id = await get_chat_id_schedules(session)
-        for chat_id in chats_id:
-            task = asyncio.create_task(_wrapper_for_create_poll(bot=bot, chat_id=chat_id))
-            quiz_cache[chat_id] = task
+    while True:
+        async with sessionmaker() as session:
+            now = datetime.now().time()
+            in_5_min = (datetime.now() + timedelta(minutes=5)).time()
+            schedules = await get_schedules_in_5_minutes(
+                session=session,
+                cleft=now,
+                cright=in_5_min,
+            )
+            for schedule in schedules:
+                asyncio.create_task(_wrapper_for_create_poll(
+                    bot=bot,
+                    schedule=schedule)
+                )
+            await asyncio.sleep(300)
 
 
-async def _wrapper_for_create_poll(bot: Bot, chat_id: int):
-    async with sessionmaker() as session:
-        schedule_time = await get_schedule_time(session=session, chat_id=chat_id)
+async def _wrapper_for_create_poll(bot: Bot, schedule: Schedule):
     time_now = datetime.now()
-    poll_time = time_now.combine(time_now, schedule_time)
+    poll_time = time_now.combine(time_now, schedule.time)
     delta = poll_time - time_now
-    if delta.days < 0:
-        poll_time = poll_time + timedelta(days=1)
-        delta = poll_time - time_now
     await asyncio.sleep(delta.seconds)
-    await _create_poll(bot=bot, chat_id=chat_id)
-    task = asyncio.create_task(_wrapper_for_create_poll(bot, chat_id))
-    schedule_cache[chat_id] = task
+    async with sessionmaker() as session:
+        if not await get_schedule_by_time_and_chat_id(
+            session,
+            schedule.chat_id,
+            schedule.time
+        ):
+            return
+    await _create_poll(bot=bot, chat_id=schedule.chat_id)
 
 
 async def _create_poll(bot: Bot, chat_id: int):

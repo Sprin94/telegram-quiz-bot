@@ -3,7 +3,7 @@ from datetime import time
 from aiogram.types import Chat as AiogramChat, Message, PollAnswer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select, func, update
+from sqlalchemy import select, func, update, delete
 from sqlalchemy.orm import joinedload
 
 from database.schemas import QuestionSchema, AnswerSchema
@@ -89,7 +89,7 @@ async def delete_question(session: AsyncSession, question_id: int):
     return None
 
 
-async def create_or_update_schedule(session: AsyncSession, time: time, chat_id: int):
+async def create_schedule(session: AsyncSession, time: time, chat_id: int):
     new_schedule = Schedule(
         chat_id=chat_id,
         time=time
@@ -97,23 +97,49 @@ async def create_or_update_schedule(session: AsyncSession, time: time, chat_id: 
     try:
         session.add(new_schedule)
         await session.commit()
+        return new_schedule
     except IntegrityError:
         await session.rollback()
-        stmt = update(Schedule).where(Schedule.chat_id == chat_id).values(time=time)
-        await session.execute(stmt)
-        await session.commit()
+        return False
 
 
-async def get_schedule_time(session: AsyncSession, chat_id: int):
-    stmt = select(Schedule.time).where(Schedule.chat_id == chat_id)
+async def get_schedule_by_time_and_chat_id(
+        session: AsyncSession,
+        chat_id: int,
+        time: time
+):
+    stmt = (select(Schedule)
+            .where(Schedule.chat_id == chat_id, Schedule.time == time))
     result = await session.execute(stmt)
-    return result.scalar_one()
+    return result.scalar()
 
 
-async def get_chat_id_schedules(session: AsyncSession):
-    stmt = select(Schedule.chat_id)
+async def get_schedules_by_chat_id(
+        session: AsyncSession,
+        chat_id: int,
+):
+    stmt = (select(Schedule)
+            .where(Schedule.chat_id == chat_id))
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+async def get_schedules_in_5_minutes(session: AsyncSession, cleft: time, cright: time):
+    stmt = (select(Schedule)
+            .where(Schedule.time.between(cleft=cleft, cright=cright)))
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+async def del_schedule(session: AsyncSession, time: time, chat_id: int):
+    stmt = (delete(Schedule)
+            .where(Schedule.chat_id == chat_id, Schedule.time == time)
+            )
+    result = await session.execute(stmt)
+    await session.commit()
+    if result.rowcount:
+        return True
+    return False
 
 
 async def create_finished_quizzes(

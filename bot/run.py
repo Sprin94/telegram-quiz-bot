@@ -19,7 +19,7 @@ async def main():
     # Проверяем подключение к БД
     await check_connection()
     # Создаем ежедневные опросы, если они запланированы
-    await create_quizzes_tasks(bot)
+    asyncio.create_task(create_quizzes_tasks(bot))
     # Запуск поллинга
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 
