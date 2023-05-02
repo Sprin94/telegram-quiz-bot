@@ -119,7 +119,8 @@ async def get_schedules_by_chat_id(
         chat_id: int,
 ):
     stmt = (select(Schedule)
-            .where(Schedule.chat_id == chat_id))
+            .where(Schedule.chat_id == chat_id)
+            .order_by(Schedule.time))
     result = await session.execute(stmt)
     return result.scalars().all()
 
