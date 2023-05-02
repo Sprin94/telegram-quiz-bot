@@ -9,9 +9,9 @@ load_dotenv('.env')
 
 class Settings(BaseSettings):
     BOT_TOKEN: SecretStr
-    ADMINS_ID: list[int]
 
     POSTGRES_HOST: str
+    POSTGRES_PORT: str
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
@@ -30,6 +30,7 @@ class Settings(BaseSettings):
             user=values.get("POSTGRES_USER"),
             password=values.get("POSTGRES_PASSWORD"),
             host=values.get("POSTGRES_HOST"),
+            port=values.get('POSTGRES_PORT'),
             path=f"/{values.get('POSTGRES_DB') or ''}",
         )
 
