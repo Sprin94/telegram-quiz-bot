@@ -41,6 +41,8 @@ jobs:
             docker-compose rm -f web
             docker image rm sprin94/foodgram
             rm .env
+            echo POSTGRES_PORT=${{ secrets.POSTGRES_PORT }} >> .env
+            echo BOT_TOKEN=${{ secrets.BOT_TOKEN }} >> .env
             echo POSTGRES_DB=${{ secrets.POSTGRES_DB }} >> .env
             echo POSTGRES_HOST=${{ secrets.POSTGRES_HOST }} >> .env
             echo POSTGRES_USER=${{ secrets.POSTGRES_USER }} >> .env
