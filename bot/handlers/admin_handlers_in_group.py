@@ -4,12 +4,11 @@ from datetime import datetime, timedelta
 from aiogram import Router, Bot, F
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
-from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.crud import create_schedule, get_schedules_by_chat_id, del_schedule
 from services.create_poll import _create_poll, _wrapper_for_create_poll
-
+from bot_responses import commands_response as text
 from filters.admin_user import IsAdmin
 
 router: Router = Router(name="admin-group")
@@ -23,11 +22,11 @@ async def add_time_for_poll(
     session: AsyncSession,
     command: CommandObject,
 ):
-    error_msg = 'Пожалуйста, укажите время проведения викторины.\nПример /add_time 15:15'
     try:
-        poll_time = datetime.strptime(command.args, '%H:%M').time()
+        times = command.args or ''
+        poll_time = datetime.strptime(times, '%H:%M').time()
     except ValueError:
-        return await message.answer(error_msg)
+        return await message.answer(text.ERROR_MESSAGE_ADD_TIME)
     schedule = await create_schedule(
         session=session,
         time=poll_time,
@@ -46,16 +45,6 @@ async def create_poll_command(message: Message, bot: Bot):
     await _create_poll(bot=bot, chat_id=message.chat.id)
 
 
-@router.message(Command(commands=['manage_quiz']))
-async def settings_chat(message: Message, bot: Bot, state: FSMContext):
-    await bot.send_message(
-        message.from_user.id,
-        'Для выбора чата и создания вопросов для него используйте:\n'
-        f'<code>/manage {message.chat.id}\n</code>',
-        parse_mode='HTML'
-    )
-
-
 @router.message(Command(commands=['quiz_times']))
 async def get_quiz_times(message: Message, session: AsyncSession):
     schedules = await get_schedules_by_chat_id(session, message.chat.id)
@@ -65,11 +54,12 @@ async def get_quiz_times(message: Message, session: AsyncSession):
 
 @router.message(Command(commands=['del_time']))
 async def del_time_quiz(message: Message, session: AsyncSession, command: CommandObject):
-    error_msg = 'Пожалуйста, укажите время викторины.\nПример /del_time 15:15'
+
     try:
-        poll_time = datetime.strptime(command.args, '%H:%M').time()
+        times = command.args or ''
+        poll_time = datetime.strptime(times, '%H:%M').time()
     except ValueError:
-        return await message.answer(error_msg)
+        return await message.answer(text.ERROR_MESSAGE_DEL_TIME)
     is_del = await del_schedule(session, poll_time, message.chat.id)
     if is_del:
         return await message.answer('Время викторины удалено.')
