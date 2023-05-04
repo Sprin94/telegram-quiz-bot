@@ -166,3 +166,11 @@ async def set_winner_finished_quizzes(
             .values(winner=poll_answer.user.id))
     await session.execute(stmt)
     await session.commit()
+
+
+async def update_chat_id(session: AsyncSession, old_chat_id: int, new_chat_id: int):
+    stmt = (update(Chat)
+            .where(Chat.id == old_chat_id)
+            .values(id=new_chat_id))
+    await session.execute(stmt)
+    await session.commit()
